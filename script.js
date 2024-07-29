@@ -3,25 +3,38 @@ const chatBox = document.getElementById('chat-box');
 const startRecordingBtn = document.getElementById('start-recording');
 const stopRecordingBtn = document.getElementById('stop-recording');
 
-// Check if the browser supports Web Speech API
-const hasSpeechRecognition = 'webkitSpeechRecognition' in window;
-const hasSpeechSynthesis = 'speechSynthesis' in window;
-
-if (hasSpeechRecognition && hasSpeechSynthesis) {
+if ('webkitSpeechRecognition' in window && 'speechSynthesis' in window) {
     const recognition = new webkitSpeechRecognition();
     recognition.lang = 'en-US';
     recognition.interimResults = false;
+    recognition.continuous = false;
 
-    recognition.onstart = () => {
-        isRecording = true;
-        startRecordingBtn.disabled = true;
-        stopRecordingBtn.disabled = false;
+    const requestMicrophoneAccess = async () => {
+        try {
+            // Request microphone access by attempting to start recognition
+            recognition.start();
+            recognition.onstart = () => {
+                // Microphone access granted
+                startRecordingBtn.disabled = true;
+                stopRecordingBtn.disabled = false;
+            };
+            recognition.onerror = (event) => {
+                // Handle errors, including permission denial
+                if (event.error === 'not-allowed' || event.error === 'not-allowed') {
+                    alert('Microphone access was denied. Please allow access in your browser settings.');
+                }
+            };
+        } catch (error) {
+            alert('An error occurred while requesting microphone access.');
+        }
     };
+
+    requestMicrophoneAccess();
 
     recognition.onresult = async (event) => {
         const userMessage = event.results[0][0].transcript;
         chatBox.innerHTML += `<div class="message user">${userMessage}</div>`;
-        
+
         try {
             const response = await fetch('http://127.0.0.1:5000/send_message', {
                 method: 'POST',
@@ -34,9 +47,19 @@ if (hasSpeechRecognition && hasSpeechSynthesis) {
 
             let assistantMessage = data.response || data.error || 'Error: Unknown error';
             chatBox.innerHTML += `<div class="message assistant">${assistantMessage}</div>`;
-            
-            const utterance = new SpeechSynthesisUtterance(assistantMessage);
-            speechSynthesis.speak(utterance);
+
+            // Play the audio response if available
+            if (data.audio_url) {
+                const audio = new Audio(data.audio_url);
+                audio.play();
+            } else {
+                // Fallback to browser TTS if audio URL is not provided
+                const utterance = new SpeechSynthesisUtterance(assistantMessage);
+                const voices = window.speechSynthesis.getVoices();
+                utterance.voice = voices.find(voice => voice.name === 'Google US English'); // Choose a more realistic voice
+                window.speechSynthesis.speak(utterance);
+            }
+
         } catch (error) {
             chatBox.innerHTML += `<div class="message assistant">Error: ${error.message}</div>`;
         }
@@ -55,12 +78,14 @@ if (hasSpeechRecognition && hasSpeechSynthesis) {
     startRecordingBtn.onclick = () => {
         if (!isRecording) {
             recognition.start();
+            isRecording = true;
         }
     };
 
     stopRecordingBtn.onclick = () => {
         if (isRecording) {
             recognition.stop();
+            isRecording = false;
         }
     };
 } else {
