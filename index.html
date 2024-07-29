@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Voice Assistant - Consumer Rights</title>
+    <title>Chat Application</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="page">
-        <header class="page-header">
-            <h1>AI Voice Assistant - Consumer Rights</h1>
-            <a href="index.html" class="back-button">Back to Home</a>
-        </header>
-        <div class="page-content">
-            <h2>AI Voice Assistant</h2>
-            <p>This assistant will educate you about your consumer rights and provide solutions related to consumer rights issues.</p>
-            <button id="start-btn">Start Voice Assistant</button>
-            <div id="response" class="chat-container"></div>
+    <div class="container">
+        <div class="header">
+            <h1>Chat Assistant</h1>
+        </div>
+        <div class="chat-box" id="chat-box">
+            <!-- Messages will be appended here -->
+        </div>
+        <div class="input-container">
+            <button id="start-recording">Start Recording</button>
+            <button id="stop-recording" disabled>Stop Recording</button>
         </div>
     </div>
     <script src="script.js"></script>

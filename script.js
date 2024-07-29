@@ -1,65 +1,68 @@
-const AI71_BASE_URL = "https://api.ai71.ai/v1/";
-const AI71_API_KEY = "ai71-api-698349c2-ec60-4009-be4d-aaa05ac8a97c";
+let isRecording = false;
+const chatBox = document.getElementById('chat-box');
+const startRecordingBtn = document.getElementById('start-recording');
+const stopRecordingBtn = document.getElementById('stop-recording');
 
-async function fetchChatCompletion(userMessage) {
-  try {
-    const response = await fetch(`${AI71_BASE_URL}chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${AI71_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: "tiiuae/falcon-180b-chat",
-        messages: [
-          { role: "system", content: "You are a helpful assistant." },
-          { role: "user", content: userMessage }
-        ]
-      })
-    });
+// Check if the browser supports Web Speech API
+const hasSpeechRecognition = 'webkitSpeechRecognition' in window;
+const hasSpeechSynthesis = 'speechSynthesis' in window;
 
-    const data = await response.json();
-    addMessage('ai', data.choices[0].message.content);
-    speakResponse(data.choices[0].message.content);
-  } catch (error) {
-    console.error('Error fetching chat completion:', error);
-    addMessage('error', 'Error fetching response from AI71.');
-  }
+if (hasSpeechRecognition && hasSpeechSynthesis) {
+    const recognition = new webkitSpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+        isRecording = true;
+        startRecordingBtn.disabled = true;
+        stopRecordingBtn.disabled = false;
+    };
+
+    recognition.onresult = async (event) => {
+        const userMessage = event.results[0][0].transcript;
+        chatBox.innerHTML += `<div class="message user">${userMessage}</div>`;
+        
+        try {
+            const response = await fetch('http://127.0.0.1:5000/send_message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: userMessage }),
+            });
+            const data = await response.json();
+
+            let assistantMessage = data.response || data.error || 'Error: Unknown error';
+            chatBox.innerHTML += `<div class="message assistant">${assistantMessage}</div>`;
+            
+            const utterance = new SpeechSynthesisUtterance(assistantMessage);
+            speechSynthesis.speak(utterance);
+        } catch (error) {
+            chatBox.innerHTML += `<div class="message assistant">Error: ${error.message}</div>`;
+        }
+    };
+
+    recognition.onerror = (event) => {
+        chatBox.innerHTML += `<div class="message assistant">Error: ${event.error}</div>`;
+    };
+
+    recognition.onend = () => {
+        isRecording = false;
+        startRecordingBtn.disabled = false;
+        stopRecordingBtn.disabled = true;
+    };
+
+    startRecordingBtn.onclick = () => {
+        if (!isRecording) {
+            recognition.start();
+        }
+    };
+
+    stopRecordingBtn.onclick = () => {
+        if (isRecording) {
+            recognition.stop();
+        }
+    };
+} else {
+    alert('Speech Recognition or Speech Synthesis API not supported.');
 }
-
-function speakResponse(text) {
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.onerror = (event) => {
-    console.error('Speech synthesis error:', event.error);
-  };
-  window.speechSynthesis.speak(utterance);
-}
-
-function addMessage(role, message) {
-  const responseContainer = document.getElementById('response');
-  const messageElement = document.createElement('div');
-  messageElement.className = `message ${role}`;
-  messageElement.textContent = message;
-  responseContainer.appendChild(messageElement);
-  responseContainer.scrollTop = responseContainer.scrollHeight;
-}
-
-document.getElementById('start-btn').addEventListener('click', () => {
-  const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-
-  recognition.continuous = false; // Process only one result at a time
-  recognition.interimResults = false; // No need for intermediate results
-
-  recognition.onresult = (event) => {
-    const userMessage = event.results[0][0].transcript.trim();
-    addMessage('user', userMessage);
-    fetchChatCompletion(userMessage);
-  };
-
-  recognition.onerror = (event) => {
-    console.error('Speech recognition error:', event.error);
-    addMessage('error', 'Error recognizing speech.');
-  };
-
-  recognition.start();
-});
