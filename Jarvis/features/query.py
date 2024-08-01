@@ -1,6 +1,6 @@
 from ai71 import AI71
 
-AI71_API_KEY = "ai71-api-d26be421-3d0c-4315-89f6-02cc5ee1d80a"
+AI71_API_KEY = "YOUR API"
 client = AI71(AI71_API_KEY)
 
 
